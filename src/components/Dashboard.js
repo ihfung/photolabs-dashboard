@@ -2,34 +2,43 @@ import React, { Component } from "react";
 import Loading from "./Loading";
 import Panel from "./Panel";
 import classnames from "classnames";
+import {
+ getTotalPhotos,
+ getTotalTopics,
+ getUserWithMostUploads,
+ getUserWithLeastUploads
+} from "helpers/selectors";
 
 const data = [
   {
     id: 1,
     label: "Total Photos",
-    value: 10
+    getValue: getTotalPhotos
   },
   {
     id: 2,
     label: "Total Topics",
-    value: 4
+    getValue: getTotalTopics
   },
   {
     id: 3,
     label: "User with the most uploads",
-    value: "Allison Saeng"
+    getValue: getUserWithMostUploads
   },
   {
     id: 4,
     label: "User with the least uploads",
-    value: "Lukas Souza"
+    getValue: getUserWithLeastUploads
   }
+
 ];
 
 class Dashboard extends Component {
   state = {
-    loading: false,
-    focused: null
+    loading: true,
+    focused: null,
+    photos: [],
+    topics: [],
   };
 
   //Change the selectPanel function to set the value of focused back to null if the value of focused is currently set to a panel.
@@ -42,6 +51,36 @@ class Dashboard extends Component {
   handleFocus = (id) => {
     this.setState({ focused: id });
   };
+
+  componentDidMount() {
+    const urlsPromise = [
+    "/api/photos",
+    "/api/topics",
+    ].map(url => fetch(url).then(response => response.json()));
+
+    Promise.all(urlsPromise)
+    .then(([photos, topics]) => {
+    this.setState({
+    loading: false,
+    photos: photos,
+    topics: topics
+      });
+    });
+
+
+    const focused = JSON.parse(localStorage.getItem("focused"));
+
+    if (focused) {
+      this.setState({ focused });
+    }
+  }
+
+  componentDidUpdate(previousProps, previousState) {
+    if (previousState.focused !== this.state.focused) {
+      localStorage.setItem("focused", JSON.stringify(this.state.focused));
+    }
+  }
+
   render() {
     
     const dashboardClasses = classnames("dashboard", {
@@ -52,18 +91,16 @@ class Dashboard extends Component {
     if(this.state.loading) {
       return <Loading />;
     }
-
+    console.log(this.state);
   //If this.state.focused is null then return true for every panel.
   //If this.state.focused is equal to the Panel, then let it through the filter.
    const panels = (this.state.focused ? data.filter(panel => this.state.focused === panel.id) : data)
    .map(panel => (
-    <Panel
-     key={panel.id}
-     
-     label={panel.label}
-     value={panel.value}
-     onSelect={event => this.selectPanel(panel.id)}
-     handleFocus={this.handleFocus}
+   <Panel
+    key={panel.id}
+    label={panel.label}
+    value={panel.getValue(this.state)}
+    onSelect={() => this.selectPanel(panel.id)}
     />
    ));
     return <main className={dashboardClasses}>{panels}</main>;
